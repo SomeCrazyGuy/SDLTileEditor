@@ -1,5 +1,4 @@
 #include <SDL2/SDL.h>
-#include <algorithm>
 
 #define RECT(X,Y,W,H) (SDL_Rect){.x=(X),.y=(Y),.w=(W),.h=(H)}
 #define MAX(X,Y) (((X)<(Y))?(Y):(X))
@@ -111,7 +110,7 @@ class graphics {
 			100,
 			100,
 			conf.toPixel(conf.editorSize.x + conf.spriteMapSize.x),
-			conf.toPixel(std::max(conf.editorSize.y, conf.spriteMapSize.y)),
+			conf.toPixel(MAX(conf.editorSize.y, conf.spriteMapSize.y)),
 			SDL_WINDOW_SHOWN
 		);
 
@@ -198,6 +197,9 @@ class input {
 				case SDL_KEYUP:
 					switch (e.key.keysym.sym) {
 						case SDLK_RETURN:
+							enterPressed = true;
+							break;
+						case SDLK_SPACE:
 							enterPressed = true;
 							break;
 						case SDLK_q:
@@ -288,7 +290,7 @@ int main() {
 			ed.saveTile(selection);
 		}
 
-		//SDL_Delay(30);
+		SDL_Delay(30);
 	}
 
 	saveFile.write("output.tmap");
