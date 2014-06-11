@@ -12,7 +12,6 @@ class point {
 	int x, y;
 	point(){}
 	point(int w, int h): x(w), y(h) {}
-	point(point xy, point wh): x(xy.x + wh.x), y(xy.y + wh.y) {}
 };
 
 class config {
@@ -63,8 +62,6 @@ class mapformat {
 };
 
 class map {
-	//TODO: incorporate origin tracking into get/set/restore/etc
-
 	tmap* tileMap;
 	FILE* restoreFile;
 	static const int size = sizeof(struct tmap);
@@ -107,15 +104,25 @@ class map {
 		free(this->tileMap);
 	}
 
-	short offset(const point loc) {
+	int offset(const point loc) {
 		tmap* x = this->tileMap;
 		int tmpOffset = (x->width * x->origin_y) + x->origin_x;
 		return tmpOffset + ((x->width * loc.y) + loc.x);
 	}
 
 	void moveOrigin(point change) {
-		this->tileMap->origin_x += change.x;
-		this->tileMap->origin_y += change.y;
+		tmap* l = this->tileMap;
+		int ed_w = conf.editorSize.x;
+		int ed_h = conf.editorSize.y;
+
+		l->origin_x += change.x;
+		l->origin_y += change.y;
+
+		//keep offsets within the bounds of the map
+		if(l->origin_x < 0) { l->origin_x = 0; }
+		if(l->origin_y < 0) { l->origin_y = 0; }
+		if(l->origin_x + ed_w > l->width) { l->origin_x = (l->width - ed_w); }
+		if(l->origin_y + ed_h > l->height) { l->origin_y = (l->height - ed_h); }
 	}
 
 	bool canRestore(const char * const filename) {
@@ -130,14 +137,10 @@ class map {
 	}
 
 	point get(point loc) {
-		printf("O__( %04d | %04d )    L__( %04d | %04d )    ", this->tileMap->origin_x, this->tileMap->origin_x, loc.x, loc.y);
-		if(!(loc.x%4)){printf("\n");}
 		return mapformat::toPoint(this->tileMap->data[this->offset(loc)]);
 	}
 
 	void put(point loc, point data) {
-		printf("O__( %04d | %04d )    L__( %04d | %04d )    ", this->tileMap->origin_x, this->tileMap->origin_x, loc.x, loc.y);
-		if(!(loc.x%4)){printf("\n");}
 		this->tileMap->data[this->offset(loc)] = mapformat::toShort(data);
 	}
 };

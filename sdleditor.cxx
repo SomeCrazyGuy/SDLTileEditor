@@ -16,8 +16,6 @@ int main() {
 	editor ed(&in, &tiles, &saveFile);
 	tiles.flip();
 
-	//point saveOrigin = saveFile.getOrigin();
-
 	do {
 		in.run();
 		if(in.leftClick || in.rightClick) {
