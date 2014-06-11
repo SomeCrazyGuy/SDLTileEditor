@@ -35,23 +35,23 @@ int main() {
 		} else if (in.hjkl_event) {
 			switch (in.hjkl_event) {
 				case 'h':
-					saveFile.setOrigin(point(saveFile.getOrigin(), point((conf.editorSize.x/2)*-1, 0)));
+					saveFile.moveOrigin(point(-10,0));
 					break;
 				case 'j':
-					saveFile.setOrigin(point(saveFile.getOrigin(), point(0,(conf.editorSize.y/2)*-1)));
+					saveFile.moveOrigin(point(0,-10));
 					break;
 				case 'k':
-					saveFile.setOrigin(point(saveFile.getOrigin(), point(0, (conf.editorSize.y/2))));
+					saveFile.moveOrigin(point(0, 10));
 					break;
 				case 'l':
-					saveFile.setOrigin(point(saveFile.getOrigin(), point((conf.editorSize.x/2), 0)));
+					saveFile.moveOrigin(point(10, 0));
 					break;
 			}
 			ed.restore();
 			tiles.flip();
 		}
 
-		SDL_Delay(30);
+		SDL_Delay(conf.delay);
 	} while(in.running);
 
 	saveFile.write(conf.savename);

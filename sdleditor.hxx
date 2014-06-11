@@ -26,8 +26,10 @@ class config {
 	bool canRestore;
 
 	void init() {
+		int tmp = 0;
+		while (this->tileSize >> tmp) { ++tmp; }
+		this->shift = --tmp;
 		this->delay = ( 1000 / this->fps );
-		this->shift = toShift(this->tileSize);
 	}
 
 	int toTile(const int pixelVal) {
@@ -36,16 +38,6 @@ class config {
 
 	int toPixel(const int tileVal) {
 		return (tileVal << this->shift);
-	}
-
-	point toTilexy(const int x, const int y) {
-		return point(this->toTile(x), this->toTile(y));
-	}
-
-	int toShift(int pixelSize) {
-		int ret = 0;
-		while (pixelSize >>= 1) { ++ret; }
-		return ret;
 	}
 };
 config conf;
@@ -117,16 +109,13 @@ class map {
 
 	short offset(const point loc) {
 		tmap* x = this->tileMap;
-		return ((x->width * (loc.y + x->origin_y)) + (loc.x + x->origin_y));
+		int tmpOffset = (x->width * x->origin_y) + x->origin_x;
+		return tmpOffset + ((x->width * loc.y) + loc.x);
 	}
 
-	void setOrigin(point xy) {
-		this->tileMap->origin_x = ((short) xy.x & 0xffff);
-		this->tileMap->origin_y = ((short) xy.y & 0xffff);
-	}
-
-	point getOrigin() {
-		return point(this->tileMap->origin_x, this->tileMap->origin_y);
+	void moveOrigin(point change) {
+		this->tileMap->origin_x += change.x;
+		this->tileMap->origin_y += change.y;
 	}
 
 	bool canRestore(const char * const filename) {
@@ -141,10 +130,14 @@ class map {
 	}
 
 	point get(point loc) {
+		printf("O__( %04d | %04d )    L__( %04d | %04d )    ", this->tileMap->origin_x, this->tileMap->origin_x, loc.x, loc.y);
+		if(!(loc.x%4)){printf("\n");}
 		return mapformat::toPoint(this->tileMap->data[this->offset(loc)]);
 	}
 
 	void put(point loc, point data) {
+		printf("O__( %04d | %04d )    L__( %04d | %04d )    ", this->tileMap->origin_x, this->tileMap->origin_x, loc.x, loc.y);
+		if(!(loc.x%4)){printf("\n");}
 		this->tileMap->data[this->offset(loc)] = mapformat::toShort(data);
 	}
 };
@@ -160,7 +153,7 @@ class graphics {
 		SDL_Init(SDL_INIT_EVERYTHING);
 
 		SDL_Surface* tmp = SDL_LoadBMP(conf.filename);
-		conf.spriteMapSize = conf.toTilexy(tmp->w, tmp->h);
+		conf.spriteMapSize = point(conf.toTile(tmp->w), conf.toTile(tmp->h));
 
 		this->win = SDL_CreateWindow(
 			"Editor",
