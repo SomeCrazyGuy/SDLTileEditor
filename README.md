@@ -12,3 +12,11 @@ right mouse = place cursor here
 enter = place selected tile in next spot
 
 q = quit
+
+h = move map left
+
+j = move map up
+
+k = move map down
+ 
+l = move map right

@@ -7,5 +7,5 @@ default:
 	$(cc) $(cflags) -o sdleditor sdleditor.cxx $(ldflags)	
 
 clean:
-	rm -v sdleditor *.o
+	rm -vf sdleditor *.tmap
 
