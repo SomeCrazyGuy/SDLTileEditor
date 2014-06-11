@@ -20,3 +20,5 @@ j = move map up
 k = move map down
  
 l = move map right
+
+f = fill screen with selected tile

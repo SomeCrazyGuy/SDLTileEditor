@@ -4,6 +4,7 @@
 
 #define RECT(X,Y,W,H) (SDL_Rect){.x=(X),.y=(Y),.w=(W),.h=(H)}
 #define MAX(X,Y) (((X)<(Y))?(Y):(X))
+#define NEGATIVE(X) ((X)*-1)
 
 namespace {
 
@@ -12,6 +13,12 @@ class point {
 	int x, y;
 	point(){}
 	point(int w, int h): x(w), y(h) {}
+	void clamp(const point min, const point max) {
+		if(x < min.x) { x = min.x; }
+		if(y < min.y) { y = min.y; }
+		if(x > max.x) { x = max.x; }
+		if(y > max.y) { y = max.y; }
+	}
 };
 
 class config {
@@ -22,6 +29,7 @@ class config {
 	int shift, tileSize;
 	point editorSize;
 	point spriteMapSize;
+	point mapSize;
 	bool canRestore;
 
 	void init() {
@@ -72,7 +80,7 @@ class map {
 			conf.canRestore = true;
 			restore();
 		} else {
-			create(conf.editorSize);
+			create(conf.mapSize);
 		}
 	}
 
@@ -112,17 +120,18 @@ class map {
 
 	void moveOrigin(point change) {
 		tmap* l = this->tileMap;
-		int ed_w = conf.editorSize.x;
-		int ed_h = conf.editorSize.y;
+		point p = point(l->origin_x, l->origin_y);
 
-		l->origin_x += change.x;
-		l->origin_y += change.y;
+		p.x += change.x;
+		p.y += change.y;
 
-		//keep offsets within the bounds of the map
-		if(l->origin_x < 0) { l->origin_x = 0; }
-		if(l->origin_y < 0) { l->origin_y = 0; }
-		if(l->origin_x + ed_w > l->width) { l->origin_x = (l->width - ed_w); }
-		if(l->origin_y + ed_h > l->height) { l->origin_y = (l->height - ed_h); }
+		p.clamp(
+			point(0,0),
+			point(l->width - conf.editorSize.x, l->height - conf.editorSize.y)
+		);
+
+		l->origin_x = p.x;
+		l->origin_y = p.y;
 	}
 
 	bool canRestore(const char * const filename) {
@@ -230,7 +239,7 @@ class input {
 	bool leftClick;
 	bool rightClick;
 	bool enterPressed;
-	char hjkl_event;
+	char key_event;
 	int skippedEvents;
 
 	void run() {
@@ -240,7 +249,7 @@ class input {
 		rightClick = false;
 		mouseUp = point(-1, -1);
 		enterPressed = false;
-		hjkl_event = 0;
+		key_event = 0;
 
 		while(SDL_PollEvent(&e)) {
 			switch(e.type) {
@@ -270,19 +279,8 @@ class input {
 				this->running = false;
 				break;
 
-			case SDLK_h:
-				hjkl_event = 'h';
-				break;
-			case SDLK_j:
-				hjkl_event = 'j';
-				break;
-			case SDLK_k:
-				hjkl_event = 'k';
-				break;
-			case SDLK_l:
-				hjkl_event = 'l';
-				break;
 			default:
+				this->key_event = true;
 				break;
 		}
 	}
