@@ -1,3 +1,12 @@
+2014/06/12:
+===========
+	-version 0.02
+	-added w,a,s,d to move cursor within the editor
+	-clamp limits are slightly miscalculated
+	-indroduced cursor moving
+	-improved the README
+
+
 2014/06/11:
 ===========
 	-Added changelog

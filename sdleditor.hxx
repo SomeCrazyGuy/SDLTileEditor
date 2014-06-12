@@ -8,8 +8,8 @@
 #define DATE(X,Y,Z) ((((X)*100*100)+((Y)*100))+(Z))
 
 namespace {
-static const unsigned long BuildID = DATE(2014, 6, 11);
-static const unsigned long Version = 0.01;
+static const unsigned long BuildID = DATE(2014, 6, 12);
+static const unsigned long Version = 0.02;
 
 
 class point {
@@ -320,16 +320,28 @@ class editor {
 
 	public:
 	point cursor;
+	point cursorTile;
 	point selection;
 
-	editor(input* a, graphics* b, map* c): i(a), g(b), m(c) {
+	editor(input* a, graphics* b, map* c, point fil, point cur): i(a), g(b), m(c) {
 		if(conf.canRestore) {
 			this->restore();
-		} else {
-			this->fill(point(0,0));
 		}
+		this->cursorTile = cur;
 		this->cursor = point(0,0);
 		this->selection = point(0,0);
+	}
+
+	void moveCursor(point dest) {
+		g->copyTile(m->get(this->cursor), this->cursor);
+		this->cursor = dest;
+		this->cursor.clamp(point(0,0), conf.editorSize);
+		this->drawCursor();
+		g->flip();
+	}
+
+	void drawCursor() {
+		g->copyTile(this->cursorTile, this->cursor);
 	}
 
 	void fill(point fillTile) {
@@ -350,10 +362,15 @@ class editor {
 	}
 
 	void draw() {
+		this->quickDraw();
+		this->cursor.inc2d(conf.editorSize);
+		this->drawCursor();
+		g->flip();
+	}
+
+	void quickDraw() {
 		m->put(this->cursor, this->selection);
 		g->copyTile(this->selection, this->cursor);
-		this->cursor.inc2d(conf.editorSize);
-		g->flip();
 	}
 };
 

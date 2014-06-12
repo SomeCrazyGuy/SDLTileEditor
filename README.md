@@ -9,9 +9,13 @@ left mouse button = place selected tile at mouse or at next spot
 
 right mouse = place cursor here
 
-enter = place selected tile in next spot
+Enter = place selected tile in next spot
+
+Space = place selected tile in next spot
 
 q = quit
+
+Esc = quit
 
 h = move map left
 
@@ -22,3 +26,11 @@ k = move map down
 l = move map right
 
 f = fill screen with selected tile
+
+w = move cursor up
+
+a = move cursor left
+
+s = move cursor down
+
+d = move cursor right
