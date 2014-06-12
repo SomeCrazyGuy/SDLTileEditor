@@ -5,19 +5,31 @@
 #define RECT(X,Y,W,H) (SDL_Rect){.x=(X),.y=(Y),.w=(W),.h=(H)}
 #define MAX(X,Y) (((X)<(Y))?(Y):(X))
 #define NEGATIVE(X) ((X)*-1)
+#define DATE(X,Y,Z) ((((X)*100*100)+((Y)*100))+(Z))ULL
 
 namespace {
+static const unsigned long BuildID = DATE(2014, 6, 11);
+static const unsigned long Version = 0.01;
+
 
 class point {
 	public:
 	int x, y;
 	point(){}
-	point(int w, int h): x(w), y(h) {}
+	point(const int w, const int h): x(w), y(h) {}
 	void clamp(const point min, const point max) {
 		if(x < min.x) { x = min.x; }
 		if(y < min.y) { y = min.y; }
 		if(x > max.x) { x = max.x; }
 		if(y > max.y) { y = max.y; }
+	}
+	void inc2d(const point limit) {
+		++x;
+		if(x >= limit.x) { ++y;	x=0; }
+		if(y >= limit.y) { y=0;	}
+	}
+	bool equals(const point other) const {
+		return (x == other.x && y == other.y);
 	}
 };
 
@@ -62,7 +74,7 @@ struct tmap {
 class mapformat {
 	public:
 	static short toShort(const point xy) {
-		return ((xy.x << 8) + xy.y);
+		return (((xy.x & 0xff) << 8) + (xy.y & 0xff));
 	}
 	static point toPoint(const short data) {
 		return point((data >> 8), (data & 0xff));
@@ -88,7 +100,7 @@ class map {
 		tmap* l;
 		int tmap_size = (this->size + ((size.x * size.y) * 2));
 
-		l = (tmap*) malloc(tmap_size);
+		l = (tmap*) calloc(1, tmap_size);
 		*((int*)l->magic) = *(int*)"Tmap";
 		l->width = (short) (size.x & 0xffff);
 		l->height = (short) (size.y & 0xffff);
@@ -166,7 +178,9 @@ class graphics {
 
 		SDL_Surface* tmp = SDL_LoadBMP(conf.filename);
 		conf.spriteMapSize = point(conf.toTile(tmp->w), conf.toTile(tmp->h));
+		SDL_SetColorKey(tmp, SDL_TRUE, SDL_MapRGB(tmp->format, 0xff, 0xff, 0xff));
 
+		//window
 		this->win = SDL_CreateWindow(
 			"Editor",
 			100,
@@ -176,12 +190,14 @@ class graphics {
 			SDL_WINDOW_SHOWN
 		);
 
+		//renderer
 		this->ren = SDL_CreateRenderer(
 			this->win,
 			-1, //auto choose any suitable renderer
 			SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC
 		);
 
+		//tilemap texture
 		this->tex = SDL_CreateTextureFromSurface(this->ren, tmp);
 		SDL_FreeSurface(tmp);
 
@@ -324,27 +340,17 @@ class editor {
 	}
 
 	void restore() {
-		point loc;
-		for(int i=0; i<conf.editorSize.x; ++i) {
-			for(int j=0; j<conf.editorSize.y; ++j) {
-				loc = point(j,i);
-				g->copyTile(m->get(loc), loc);
-			}
-		}
+		point loc = point(0,0);
+		do {
+			g->copyTile(m->get(loc), loc);
+			loc.inc2d(conf.editorSize);
+		} while (!loc.equals(point(0,0)));
 	}
 
 	void draw() {
 		m->put(this->cursor, this->selection);
 		g->copyTile(this->selection, this->cursor);
-
-		if(++cursor.x == conf.editorSize.x) {
-			cursor.x = 0;
-			++cursor.y;
-			if(cursor.y == conf.editorSize.y) {
-				cursor.y = 0;
-			}
-		}
-
+		this->cursor.inc2d(conf.editorSize);
 		g->flip();
 	}
 };

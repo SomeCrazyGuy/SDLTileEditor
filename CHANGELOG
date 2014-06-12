@@ -1,0 +1,7 @@
+2014/06/11:
+===========
+	-Added changelog
+	-Added version number and build ID
+	-used Calloc on new maps to improve consistency
+	-used SDL color keying for transparency
+	-tweaked spritemap
