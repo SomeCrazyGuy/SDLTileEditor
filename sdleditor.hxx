@@ -5,7 +5,7 @@
 #define RECT(X,Y,W,H) (SDL_Rect){.x=(X),.y=(Y),.w=(W),.h=(H)}
 #define MAX(X,Y) (((X)<(Y))?(Y):(X))
 #define NEGATIVE(X) ((X)*-1)
-#define DATE(X,Y,Z) ((((X)*100*100)+((Y)*100))+(Z))ULL
+#define DATE(X,Y,Z) ((((X)*100*100)+((Y)*100))+(Z))
 
 namespace {
 static const unsigned long BuildID = DATE(2014, 6, 11);
@@ -30,6 +30,10 @@ class point {
 	}
 	bool equals(const point other) const {
 		return (x == other.x && y == other.y);
+	}
+	void copyFrom(const point source) {
+		x = source.x;
+		y = source.y;
 	}
 };
 
@@ -134,9 +138,7 @@ class map {
 		tmap* l = this->tileMap;
 		point p = point(l->origin_x, l->origin_y);
 
-		p.x += change.x;
-		p.y += change.y;
-
+		p.copyFrom(change);
 		p.clamp(
 			point(0,0),
 			point(l->width - conf.editorSize.x, l->height - conf.editorSize.y)
@@ -331,20 +333,20 @@ class editor {
 	}
 
 	void fill(point fillTile) {
-		for(int i=0; i<conf.editorSize.x; ++i) {
-			for(int j=0; j<conf.editorSize.y; ++j) {
-				m->put(point(j,i), fillTile);
-				g->copyTile(fillTile, point(j,i));
-			}
-		}
+		point loc(0,0);
+		do {
+			m->put(loc, fillTile);
+			g->copyTile(fillTile, loc);
+			loc.inc2d(conf.editorSize);
+		} while (loc.x || loc.y);
 	}
 
 	void restore() {
-		point loc = point(0,0);
+		point loc(0,0);
 		do {
 			g->copyTile(m->get(loc), loc);
 			loc.inc2d(conf.editorSize);
-		} while (!loc.equals(point(0,0)));
+		} while (loc.x || loc.y);
 	}
 
 	void draw() {
