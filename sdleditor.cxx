@@ -14,7 +14,7 @@ int main() {
 	graphics tiles;
 	map saveFile;
 
-	editor ed(&in, &tiles, &saveFile, point(15,0), point(16,0));
+	editor ed(&in, &tiles, &saveFile, point(16,0));
 	tiles.flip();
 
 	int ed_x = conf.editorSize.x;
@@ -58,6 +58,9 @@ int main() {
 					ed.fill(ed.selection);
 					tiles.flip();
 					break;
+				case SDLK_r:
+					restore = true;
+					break;
 				case SDLK_w:
 					ed.moveCursor(point(ed.cursor.x, ed.cursor.y - 1));
 					break;
@@ -75,6 +78,7 @@ int main() {
 			}
 			if(restore) {
 				ed.restore();
+				ed.drawCursor();
 				tiles.flip();
 			}
 		}

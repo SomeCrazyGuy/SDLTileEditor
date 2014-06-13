@@ -28,13 +28,6 @@ class point {
 		if(x >= limit.x) { ++y;	x=0; }
 		if(y >= limit.y) { y=0;	}
 	}
-	bool equals(const point other) const {
-		return (x == other.x && y == other.y);
-	}
-	void copyFrom(const point source) {
-		x = source.x;
-		y = source.y;
-	}
 };
 
 class config {
@@ -138,7 +131,8 @@ class map {
 		tmap* l = this->tileMap;
 		point p = point(l->origin_x, l->origin_y);
 
-		p.copyFrom(change);
+		p = change;
+
 		p.clamp(
 			point(0,0),
 			point(l->width - conf.editorSize.x, l->height - conf.editorSize.y)
@@ -323,13 +317,12 @@ class editor {
 	point cursorTile;
 	point selection;
 
-	editor(input* a, graphics* b, map* c, point fil, point cur): i(a), g(b), m(c) {
-		if(conf.canRestore) {
-			this->restore();
-		}
+	editor(input* a, graphics* b, map* c, point cur): i(a), g(b), m(c) {
+		this->restore();
 		this->cursorTile = cur;
 		this->cursor = point(0,0);
 		this->selection = point(0,0);
+		this->drawCursor();
 	}
 
 	void moveCursor(point dest) {
@@ -343,6 +336,11 @@ class editor {
 	void drawCursor() {
 		g->copyTile(this->cursorTile, this->cursor);
 	}
+
+	/* TODO: fix that bug
+	 *	-map wont move the last 10 blocks in either x or y
+	 * */
+
 
 	void fill(point fillTile) {
 		point loc(0,0);
@@ -362,15 +360,11 @@ class editor {
 	}
 
 	void draw() {
-		this->quickDraw();
+		m->put(this->cursor, this->selection);
+		g->copyTile(this->selection, this->cursor);
 		this->cursor.inc2d(conf.editorSize);
 		this->drawCursor();
 		g->flip();
-	}
-
-	void quickDraw() {
-		m->put(this->cursor, this->selection);
-		g->copyTile(this->selection, this->cursor);
 	}
 };
 

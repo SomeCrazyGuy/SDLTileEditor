@@ -34,3 +34,5 @@ a = move cursor left
 s = move cursor down
 
 d = move cursor right
+
+r = refresh view
