@@ -24,10 +24,12 @@ int main() {
 	do {
 		in.run();
 		restore = false;
+		conf.cursorAdvance = true;
 		if(in.leftClick || in.rightClick) {
 			if(in.mouseUp.x < ed_x) {
 				ed.moveCursor(in.mouseUp);
 				if(in.leftClick) {
+					conf.cursorAdvance = false;
 					ed.draw();
 				}
 			} else {
@@ -72,6 +74,12 @@ int main() {
 					break;
 				case SDLK_d:
 					ed.moveCursor(point(ed.cursor.x + 1, ed.cursor.y));
+					break;
+				case SDLK_y:
+					conf.cursorY = true;
+					break;
+				case SDLK_x:
+					conf.cursorY = false;
 					break;
 				default:
 					break;

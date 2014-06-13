@@ -39,7 +39,8 @@ class config {
 	point editorSize;
 	point spriteMapSize;
 	point mapSize;
-	bool canRestore;
+	bool cursorAdvance;
+	bool cursorY;
 
 	void init() {
 		int tmp = 0;
@@ -86,7 +87,6 @@ class map {
 	public:
 	map() {
 		if(this->canRestore(conf.savename)) {
-			conf.canRestore = true;
 			restore();
 		} else {
 			create(conf.mapSize);
@@ -362,7 +362,16 @@ class editor {
 	void draw() {
 		m->put(this->cursor, this->selection);
 		g->copyTile(this->selection, this->cursor);
-		this->cursor.inc2d(conf.editorSize);
+		if(conf.cursorAdvance) {
+			if(conf.cursorY) {
+				this->cursor.y++;
+				if(this->cursor.y >= conf.editorSize.y) {
+					this->cursor.y = 0;
+				}
+			} else {
+				this->cursor.inc2d(conf.editorSize);
+			}
+		}
 		this->drawCursor();
 		g->flip();
 	}
