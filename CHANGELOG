@@ -1,3 +1,14 @@
+2014/06/14:
+===========
+	-removed stdlib file IO and used SDL builtin file IO
+
+
+2014/06/13:
+===========
+	-added TODO file
+	-improved cursor handling
+
+
 2014/06/12:
 ===========
 	-version 0.02

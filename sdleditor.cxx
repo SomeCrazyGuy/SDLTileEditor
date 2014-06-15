@@ -1,4 +1,3 @@
-#include <SDL2/SDL.h>
 #include "sdleditor.hxx"
 
 int main() {
@@ -95,5 +94,6 @@ int main() {
 	} while(in.running);
 
 	saveFile.write(conf.savename);
+	~tiles();
 	return 0;
 }

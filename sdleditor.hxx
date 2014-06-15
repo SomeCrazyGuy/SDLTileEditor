@@ -8,8 +8,13 @@
 #define DATE(X,Y,Z) ((((X)*100*100)+((Y)*100))+(Z))
 
 namespace {
-static const unsigned long BuildID = DATE(2014, 6, 12);
-static const unsigned long Version = 0.02;
+static const unsigned long BuildID = DATE(2014, 6, 14);
+static const unsigned long Version = 0.03;
+static const unsigned long MinorBuild = 1;
+
+	/* TODO: fix that bug
+	 *	-map wont move the last 10 blocks in either x or y
+	 * */
 
 
 class point {
@@ -81,7 +86,7 @@ class mapformat {
 
 class map {
 	tmap* tileMap;
-	FILE* restoreFile;
+	SDL_RWops* restoreFile;
 	static const int size = sizeof(struct tmap);
 
 	public:
@@ -110,11 +115,11 @@ class map {
 	void restore() {
 		tmap* l;
 		l = (tmap*) malloc(this->size);
-		fread(l, this->size, 1, this->restoreFile);
+		SDL_RWread(this->restoreFile, l, this->size, 1);
 		l = (tmap*) realloc(l, l->size);
-		fread(&(l->data), (l->size - this->size), 1, this->restoreFile);
+		SDL_RWread(this->restoreFile, &(l->data), (l->size - this->size), 1);
 		this->tileMap = l;
-		fclose(this->restoreFile);
+		SDL_RWclose(this->restoreFile);
 	}
 
 	~map() {
@@ -143,14 +148,14 @@ class map {
 	}
 
 	bool canRestore(const char * const filename) {
-		this->restoreFile = fopen(filename, "r");
+		this->restoreFile = SDL_RWFromFile(filename, "r");
 		return this->restoreFile;
 	}
 
 	void write(const char * const filename) {
-		FILE * tmp = fopen(filename, "w");
-		fwrite(this->tileMap, this->tileMap->size, 1, tmp);
-		fclose(tmp);
+		SDL_RWops* tmp = SDL_RWFromFile(filename, "w");
+		SDL_RWwrite(tmp, this->tileMap, this->tileMap->size, 1);
+		SDL_RWclose(tmp);
 	}
 
 	point get(point loc) {
@@ -336,11 +341,6 @@ class editor {
 	void drawCursor() {
 		g->copyTile(this->cursorTile, this->cursor);
 	}
-
-	/* TODO: fix that bug
-	 *	-map wont move the last 10 blocks in either x or y
-	 * */
-
 
 	void fill(point fillTile) {
 		point loc(0,0);

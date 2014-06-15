@@ -1,8 +1,8 @@
 -add a cursor to the spritemap side
 -right-click on the spritemap side selects without placing a tile
 -scrolling for the spritemap as well
--disable cursor advance for mouse buttons
--toggle column or row cursor advance
 -visual feedback for events / info
+-move to SDL file I/O
+-input handling cleanup
 -one header per class
 -documentation
