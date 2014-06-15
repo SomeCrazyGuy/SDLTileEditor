@@ -36,3 +36,5 @@ s = move cursor down
 d = move cursor right
 
 r = refresh view
+
+x = toggle vertical cursor advance

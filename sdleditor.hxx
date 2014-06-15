@@ -4,18 +4,12 @@
 
 #define RECT(X,Y,W,H) (SDL_Rect){.x=(X),.y=(Y),.w=(W),.h=(H)}
 #define MAX(X,Y) (((X)<(Y))?(Y):(X))
-#define NEGATIVE(X) ((X)*-1)
 #define DATE(X,Y,Z) ((((X)*100*100)+((Y)*100))+(Z))
 
 namespace {
-static const unsigned long BuildID = DATE(2014, 6, 14);
-static const unsigned long Version = 0.03;
-static const unsigned long MinorBuild = 1;
-
-	/* TODO: fix that bug
-	 *	-map wont move the last 10 blocks in either x or y
-	 * */
-
+static const unsigned long BuildID = DATE(2014, 6, 15);
+static const unsigned long Version = 0.04;
+static const unsigned long MinorBuild = 0;
 
 class point {
 	public:
@@ -44,8 +38,6 @@ class config {
 	point editorSize;
 	point spriteMapSize;
 	point mapSize;
-	bool cursorAdvance;
-	bool cursorY;
 
 	void init() {
 		int tmp = 0;
@@ -136,7 +128,8 @@ class map {
 		tmap* l = this->tileMap;
 		point p = point(l->origin_x, l->origin_y);
 
-		p = change;
+		p.x += change.x;
+		p.y += change.y;
 
 		p.clamp(
 			point(0,0),
@@ -251,63 +244,34 @@ class graphics {
 class input {
 	public:
 	SDL_Event e;
-	point mouseUp;
-	bool running;
-	bool leftClick;
-	bool rightClick;
-	bool enterPressed;
-	char key_event;
-	int skippedEvents;
+	bool quitEvent;
+	bool mouseClick;
+	bool keyClick;
+	int keysym;
+	point clickPos;
 
 	void run() {
-		skippedEvents = 0;
-		running = true;
-		leftClick = false;
-		rightClick = false;
-		mouseUp = point(-1, -1);
-		enterPressed = false;
-		key_event = 0;
+		quitEvent = false;
+		mouseClick = false;
+		keyClick = false;
+		keysym = 0;
+		clickPos = point(-1,-1);
 
 		while(SDL_PollEvent(&e)) {
 			switch(e.type) {
 				case SDL_QUIT:
-					running = false;
+					quitEvent = true;
 					break;
 				case SDL_MOUSEBUTTONUP:
-					this->mouse_input();
+					mouseClick = true;
+					clickPos = point(conf.toTile(e.button.x),conf.toTile(e.button.y));
 					break;
 				case SDL_KEYUP:
-					this->keyboard_input();
+					keyClick = true;
+					keysym = e.key.keysym.sym;
 					break;
-				default: ++skippedEvents;
+				default: continue;
 			}
-		}
-	}
-
-	void keyboard_input() {
-		switch (e.key.keysym.sym) {
-			case SDLK_SPACE:
-			case SDLK_RETURN:
-				this->enterPressed = true;
-				break;
-
-			case SDLK_q:
-			case SDLK_ESCAPE:
-				this->running = false;
-				break;
-
-			default:
-				this->key_event = true;
-				break;
-		}
-	}
-
-	void mouse_input() {
-		mouseUp = point(conf.toTile(e.button.x), conf.toTile(e.button.y));
-		if (e.button.button == SDL_BUTTON_LEFT) {
-			leftClick = true;
-		} else {
-			rightClick = true;
 		}
 	}
 };
@@ -321,6 +285,8 @@ class editor {
 	point cursor;
 	point cursorTile;
 	point selection;
+	bool running;
+	bool cursorY;
 
 	editor(input* a, graphics* b, map* c, point cur): i(a), g(b), m(c) {
 		this->restore();
@@ -331,6 +297,10 @@ class editor {
 	}
 
 	void moveCursor(point dest) {
+		this->setCursor(point(this->cursor.x + dest.x, this->cursor.y + dest.y));
+	}
+
+	void setCursor(point dest) {
 		g->copyTile(m->get(this->cursor), this->cursor);
 		this->cursor = dest;
 		this->cursor.clamp(point(0,0), conf.editorSize);
@@ -362,8 +332,8 @@ class editor {
 	void draw() {
 		m->put(this->cursor, this->selection);
 		g->copyTile(this->selection, this->cursor);
-		if(conf.cursorAdvance) {
-			if(conf.cursorY) {
+		if(i->keyClick) {
+			if(this->cursorY) {
 				this->cursor.y++;
 				if(this->cursor.y >= conf.editorSize.y) {
 					this->cursor.y = 0;
@@ -374,6 +344,97 @@ class editor {
 		}
 		this->drawCursor();
 		g->flip();
+	}
+
+	void handleEvents() {
+		bool keyContinue = false;
+		i->run();
+
+		if(i->quitEvent) {
+			this->running = false;
+		}
+
+		/* Mouse Input */
+		if (i->mouseClick) {
+			if(i->clickPos.x < conf.editorSize.x) {
+				this->setCursor(i->clickPos);
+				if(i->e.button.button == SDL_BUTTON_LEFT) {
+					this->draw();
+				}
+			} else {
+				this->selection = i->clickPos;
+				this->selection.x -= conf.editorSize.x;
+			}
+		}
+
+		/* Keyboard Input */
+		if (i->keyClick) {
+			switch(i->keysym) {
+				case SDLK_q:
+				case SDLK_ESCAPE:
+					this->running = false;
+					break;
+
+				case SDLK_SPACE:
+				case SDLK_RETURN:
+					this->draw();
+					break;
+
+				case SDLK_r:
+					this->restore();
+					this->drawCursor();
+					g->flip();
+					break;
+
+				case SDLK_x:
+					this->cursorY = !this->cursorY;
+					break;
+
+				case SDLK_f:
+					this->fill(this->selection);
+					g->flip();
+					break;
+
+				default: keyContinue = true;
+			}
+		}
+		if(keyContinue) {
+			keyContinue = false;
+			switch(i->keysym) {
+				case SDLK_w:
+					this->moveCursor(point(0,-1));
+					break;
+				case SDLK_a:
+					this->moveCursor(point(-1,0));
+					break;
+				case SDLK_s:
+					this->moveCursor(point(0,1));
+					break;
+				case SDLK_d:
+					this->moveCursor(point(1,0));
+					break;
+				default: keyContinue = true;
+			}
+		}
+		if(keyContinue) {
+			switch(i->keysym) {
+				case SDLK_h:
+					m->moveOrigin(point((conf.editorSize.x/2)*-1, 0));
+					break;
+				case SDLK_j:
+					m->moveOrigin(point(0, (conf.editorSize.x/2)*-1));
+					break;
+				case SDLK_k:
+					m->moveOrigin(point(0, (conf.editorSize.x/2)));
+					break;
+				case SDLK_l:
+					m->moveOrigin(point((conf.editorSize.x/2), 0));
+					break;
+			}
+			this->restore();
+			this->drawCursor();
+			g->flip();
+		}
 	}
 };
 

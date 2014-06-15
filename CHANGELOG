@@ -1,3 +1,11 @@
+2014/06/15:
+===========
+	-version 0.04
+	-editor class now handles input
+	-introduced MinorBuild variable to track small changes
+	-map movement bug fixed finally
+
+
 2014/06/14:
 ===========
 	-removed stdlib file IO and used SDL builtin file IO

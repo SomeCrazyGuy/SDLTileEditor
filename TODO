@@ -2,7 +2,5 @@
 -right-click on the spritemap side selects without placing a tile
 -scrolling for the spritemap as well
 -visual feedback for events / info
--move to SDL file I/O
--input handling cleanup
 -one header per class
 -documentation
