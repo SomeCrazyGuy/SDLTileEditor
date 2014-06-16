@@ -2,14 +2,27 @@
 #define SDLEDITOR_H
 #include <SDL2/SDL.h>
 
-#define RECT(X,Y,W,H) (SDL_Rect){.x=(X),.y=(Y),.w=(W),.h=(H)}
-#define MAX(X,Y) (((X)<(Y))?(Y):(X))
-#define DATE(X,Y,Z) ((((X)*100*100)+((Y)*100))+(Z))
-
 namespace {
-static const unsigned long BuildID = DATE(2014, 6, 15);
+class Factory {
+	public:
+	static SDL_Rect rect(int a, int b, int c, int d) {
+		return ((SDL_Rect){.x=a,.y=b,.w=c,.h=d});
+	}
+	static int max(int a, int b) {
+		return (a>b)? a : b;
+	}
+	static unsigned long date(int yyyy, int mm, int dd) {
+		return (yyyy*100*100) + (mm*100) + dd;
+	}
+};
+
+static const unsigned long BuildID = Factory::date(2014, 6, 15);
 static const unsigned long Version = 0.04;
-static const unsigned long MinorBuild = 0;
+static const unsigned long MinorBuild = 2;
+
+/* BUG: wasd will move one tile beyond the editor
+ * BUG: need full redraw with restore function
+ * */
 
 class point {
 	public:
@@ -28,14 +41,12 @@ class point {
 		if(y >= limit.y) { y=0;	}
 	}
 };
-
 class config {
 	public:
-	char *filename;
-	char *savename;
 	int fps, delay;
 	int shift, tileSize;
 	point editorSize;
+	point spriteViewport;
 	point spriteMapSize;
 	point mapSize;
 
@@ -82,8 +93,8 @@ class map {
 	static const int size = sizeof(struct tmap);
 
 	public:
-	map() {
-		if(this->canRestore(conf.savename)) {
+	map(const char * const mapname) {
+		if(this->canRestore(mapname)) {
 			restore();
 		} else {
 			create(conf.mapSize);
@@ -167,10 +178,10 @@ class graphics {
 	SDL_Texture* tex;
 
 	public:
-	graphics() {
+	graphics(const char * const tilemap) {
 		SDL_Init(SDL_INIT_EVERYTHING);
 
-		SDL_Surface* tmp = SDL_LoadBMP(conf.filename);
+		SDL_Surface* tmp = SDL_LoadBMP(tilemap);
 		conf.spriteMapSize = point(conf.toTile(tmp->w), conf.toTile(tmp->h));
 		SDL_SetColorKey(tmp, SDL_TRUE, SDL_MapRGB(tmp->format, 0xff, 0xff, 0xff));
 
@@ -180,7 +191,7 @@ class graphics {
 			100,
 			100,
 			conf.toPixel(conf.editorSize.x + conf.spriteMapSize.x),
-			conf.toPixel(MAX(conf.editorSize.y, conf.spriteMapSize.y)),
+			conf.toPixel(Factory::max(conf.editorSize.y, conf.spriteMapSize.y)),
 			SDL_WINDOW_SHOWN
 		);
 
@@ -199,8 +210,8 @@ class graphics {
 		SDL_SetRenderDrawColor(this->ren, 0, 0, 0, 255);
 		this->clear();
 		this->copy(
-			RECT(0, 0, conf.toPixel(conf.spriteMapSize.x), conf.toPixel(conf.spriteMapSize.y)),
-			RECT(conf.toPixel(conf.editorSize.x), 0, conf.toPixel(conf.spriteMapSize.x), conf.toPixel(conf.spriteMapSize.y))
+			Factory::rect(0, 0, conf.toPixel(conf.spriteMapSize.x), conf.toPixel(conf.spriteMapSize.y)),
+			Factory::rect(conf.toPixel(conf.editorSize.x), 0, conf.toPixel(conf.spriteMapSize.x), conf.toPixel(conf.spriteMapSize.y))
 			);
 		this->flip();
 	}
@@ -226,8 +237,8 @@ class graphics {
 
 	void copyTile(const point src, const point dest) {
 		const int x = conf.tileSize;
-		static SDL_Rect srcRect = RECT(0, 0, x, x);
-		static SDL_Rect destRect = RECT(0, 0, x, x);
+		static SDL_Rect srcRect = Factory::rect(0, 0, x, x);
+		static SDL_Rect destRect = Factory::rect(0, 0, x, x);
 
 		srcRect.x = conf.toPixel(src.x);
 		srcRect.y = conf.toPixel(src.y);
@@ -247,6 +258,7 @@ class input {
 	bool quitEvent;
 	bool mouseClick;
 	bool keyClick;
+	char ascii;
 	int keysym;
 	point clickPos;
 
@@ -262,17 +274,28 @@ class input {
 				case SDL_QUIT:
 					quitEvent = true;
 					break;
-				case SDL_MOUSEBUTTONUP:
+				case SDL_MOUSEBUTTONDOWN:
 					mouseClick = true;
-					clickPos = point(conf.toTile(e.button.x),conf.toTile(e.button.y));
+					clickPos = point(conf.toTile(e.button.x), conf.toTile(e.button.y));
 					break;
-				case SDL_KEYUP:
+				case SDL_KEYDOWN:
 					keyClick = true;
 					keysym = e.key.keysym.sym;
+					break;
+				case SDL_TEXTINPUT:
+					ascii = e.text.text[0];
 					break;
 				default: continue;
 			}
 		}
+	}
+
+	void enableTextInput() {
+		SDL_StartTextInput();
+	}
+
+	void dsableTextInput() {
+		SDL_StopTextInput();
 	}
 };
 
@@ -347,6 +370,7 @@ class editor {
 	}
 
 	void handleEvents() {
+		this->running = true;
 		bool keyContinue = false;
 		i->run();
 
@@ -364,6 +388,7 @@ class editor {
 			} else {
 				this->selection = i->clickPos;
 				this->selection.x -= conf.editorSize.x;
+				this->draw();
 			}
 		}
 
@@ -381,6 +406,7 @@ class editor {
 					break;
 
 				case SDLK_r:
+					g->clear();
 					this->restore();
 					this->drawCursor();
 					g->flip();
