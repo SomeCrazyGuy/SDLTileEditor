@@ -1,3 +1,12 @@
+2014/06/17:
+===========
+	-version 0.05
+	-initial layer support
+	-keys '1' and '2' select the respective layers
+	-other minor fixes 
+	-added function tracing script
+
+
 2014/06/16:
 ===========
 	-Minor fixes

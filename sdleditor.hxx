@@ -17,8 +17,8 @@ class Factory {
 };
 
 static const unsigned long BuildID = Factory::date(2014, 6, 15);
-static const unsigned long Version = 0.04;
-static const unsigned long MinorBuild = 2;
+static const unsigned long Version = 0.05;
+static const unsigned long MinorBuild = 0;
 
 /* BUG: wasd will move one tile beyond the editor
  * BUG: need full redraw with restore function
@@ -303,6 +303,8 @@ class editor {
 	input* i;
 	graphics* g;
 	map* m;
+	map* l1;
+	map* l2;
 
 	public:
 	point cursor;
@@ -311,7 +313,9 @@ class editor {
 	bool running;
 	bool cursorY;
 
-	editor(input* a, graphics* b, map* c, point cur): i(a), g(b), m(c) {
+	editor(input* a, graphics* b, map* c, map* d, point cur): i(a), g(b), l1(c), l2(d) {
+		this->m = this->l1;
+		this->cursorY = false;
 		this->restore();
 		this->cursorTile = cur;
 		this->cursor = point(0,0);
@@ -347,7 +351,8 @@ class editor {
 	void restore() {
 		point loc(0,0);
 		do {
-			g->copyTile(m->get(loc), loc);
+			g->copyTile(l1->get(loc), loc);
+			g->copyTile(l2->get(loc), loc);
 			loc.inc2d(conf.editorSize);
 		} while (loc.x || loc.y);
 	}
@@ -419,6 +424,14 @@ class editor {
 				case SDLK_f:
 					this->fill(this->selection);
 					g->flip();
+					break;
+
+				case SDLK_1:
+					this->m = this->l1;
+					break;
+
+				case SDLK_2:
+					this->m = this->l2;
 					break;
 
 				default: keyContinue = true;

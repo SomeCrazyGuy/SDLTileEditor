@@ -38,3 +38,7 @@ d = move cursor right
 r = refresh view
 
 x = toggle vertical cursor advance
+
+1 = select layer 1
+
+2 = select layer 2
