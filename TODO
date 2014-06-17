@@ -1,6 +1,9 @@
 -add a cursor to the spritemap side
 -right-click on the spritemap side selects without placing a tile
 -scrolling for the spritemap as well
+-sprite editor
+-tilemap editor
+-archive format
 -visual feedback for events / info
 -one header per class
 -documentation

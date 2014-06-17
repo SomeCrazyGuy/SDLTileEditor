@@ -1,4 +1,11 @@
 2014/06/17:
+	-version 0.06
+	-improved layer support
+	-new map format
+	-better restore ("r") functionality
+
+
+2014/06/17:
 ===========
 	-version 0.05
 	-initial layer support

@@ -16,13 +16,16 @@ class Factory {
 	}
 };
 
-static const unsigned long BuildID = Factory::date(2014, 6, 15);
-static const unsigned long Version = 0.05;
+static const unsigned long BuildID = Factory::date(2014, 6, 17);
+static const unsigned long Version = 0.06;
 static const unsigned long MinorBuild = 0;
 
 /* BUG: wasd will move one tile beyond the editor
  * BUG: need full redraw with restore function
  * */
+
+ /* NOTE: SDL types: [US] + int + {8,16,32,64}
+  */
 
 class point {
 	public:
@@ -68,13 +71,13 @@ class config {
 config conf;
 
 struct tmap {
-	char magic[4];
-	int size;
-	short width;
-	short height;
-	short origin_x;
-	short origin_y;
-	short data[];
+	Uint8  magic[4];
+	Uint32 size;
+	Uint16 width;
+	Uint16 height;
+	Uint16 origin_x;
+	Uint16 origin_y;
+	Uint32 data[];
 };
 
 class mapformat {
@@ -90,7 +93,8 @@ class mapformat {
 class map {
 	tmap* tileMap;
 	SDL_RWops* restoreFile;
-	static const int size = sizeof(struct tmap);
+	static const int struct_size = sizeof(struct tmap);
+	union { Uint32 i; Uint16 s[2];} layerformat;
 
 	public:
 	map(const char * const mapname) {
@@ -103,7 +107,7 @@ class map {
 
 	void create(point size) {
 		tmap* l;
-		int tmap_size = (this->size + ((size.x * size.y) * 2));
+		int tmap_size = (this->struct_size + ((size.x * size.y) * sizeof(Uint32)));
 
 		l = (tmap*) calloc(1, tmap_size);
 		*((int*)l->magic) = *(int*)"Tmap";
@@ -117,22 +121,16 @@ class map {
 
 	void restore() {
 		tmap* l;
-		l = (tmap*) malloc(this->size);
-		SDL_RWread(this->restoreFile, l, this->size, 1);
+		l = (tmap*) malloc(this->struct_size);
+		SDL_RWread(this->restoreFile, l, this->struct_size, 1);
 		l = (tmap*) realloc(l, l->size);
-		SDL_RWread(this->restoreFile, &(l->data), (l->size - this->size), 1);
+		SDL_RWread(this->restoreFile, &(l->data), (l->size - this->struct_size), 1);
 		this->tileMap = l;
 		SDL_RWclose(this->restoreFile);
 	}
 
 	~map() {
 		free(this->tileMap);
-	}
-
-	int offset(const point loc) {
-		tmap* x = this->tileMap;
-		int tmpOffset = (x->width * x->origin_y) + x->origin_x;
-		return tmpOffset + ((x->width * loc.y) + loc.x);
 	}
 
 	void moveOrigin(point change) {
@@ -162,12 +160,22 @@ class map {
 		SDL_RWclose(tmp);
 	}
 
-	point get(point loc) {
-		return mapformat::toPoint(this->tileMap->data[this->offset(loc)]);
+	int offset(const point loc) {
+		tmap* x = this->tileMap;
+		int tmpOffset = (x->width * x->origin_y) + x->origin_x;
+		return tmpOffset + ((x->width * loc.y) + loc.x);
 	}
 
-	void put(point loc, point data) {
-		this->tileMap->data[this->offset(loc)] = mapformat::toShort(data);
+	point get(point loc, int layer) {
+		layerformat.i = this->tileMap->data[this->offset(loc)];
+		return mapformat::toPoint(layerformat.s[layer]);
+	}
+
+	void put(point loc, point data, int layer) {
+		layerformat.i = this->tileMap->data[this->offset(loc)];
+		layerformat.s[layer] = mapformat::toShort(data);
+		this->tileMap->data[this->offset(loc)] = layerformat.i;
+
 	}
 };
 
@@ -209,10 +217,7 @@ class graphics {
 		//clear the framebuffer, draw the spritemap and display
 		SDL_SetRenderDrawColor(this->ren, 0, 0, 0, 255);
 		this->clear();
-		this->copy(
-			Factory::rect(0, 0, conf.toPixel(conf.spriteMapSize.x), conf.toPixel(conf.spriteMapSize.y)),
-			Factory::rect(conf.toPixel(conf.editorSize.x), 0, conf.toPixel(conf.spriteMapSize.x), conf.toPixel(conf.spriteMapSize.y))
-			);
+		this->drawTileMap();
 		this->flip();
 	}
 
@@ -221,6 +226,13 @@ class graphics {
 		SDL_DestroyRenderer(this->ren);
 		SDL_DestroyWindow(this->win);
 		SDL_Quit();
+	}
+
+	void drawTileMap() {
+		this->copy(
+			Factory::rect(0, 0, conf.toPixel(conf.spriteMapSize.x), conf.toPixel(conf.spriteMapSize.y)),
+			Factory::rect(conf.toPixel(conf.editorSize.x), 0, conf.toPixel(conf.spriteMapSize.x), conf.toPixel(conf.spriteMapSize.y))
+		);
 	}
 
 	void copy(const SDL_Rect src, const SDL_Rect dest) {
@@ -248,8 +260,6 @@ class graphics {
 
 		this->copy(srcRect, destRect);
 	}
-
-
 };
 
 class input {
@@ -303,8 +313,7 @@ class editor {
 	input* i;
 	graphics* g;
 	map* m;
-	map* l1;
-	map* l2;
+	char layer;
 
 	public:
 	point cursor;
@@ -313,8 +322,8 @@ class editor {
 	bool running;
 	bool cursorY;
 
-	editor(input* a, graphics* b, map* c, map* d, point cur): i(a), g(b), l1(c), l2(d) {
-		this->m = this->l1;
+	editor(input* a, graphics* b, map* c, point cur): i(a), g(b), m(c) {
+		this->layer = 0;
 		this->cursorY = false;
 		this->restore();
 		this->cursorTile = cur;
@@ -328,7 +337,8 @@ class editor {
 	}
 
 	void setCursor(point dest) {
-		g->copyTile(m->get(this->cursor), this->cursor);
+		g->copyTile(m->get(this->cursor, 0), this->cursor);
+		g->copyTile(m->get(this->cursor, 1), this->cursor);
 		this->cursor = dest;
 		this->cursor.clamp(point(0,0), conf.editorSize);
 		this->drawCursor();
@@ -342,7 +352,7 @@ class editor {
 	void fill(point fillTile) {
 		point loc(0,0);
 		do {
-			m->put(loc, fillTile);
+			m->put(loc, fillTile, this->layer);
 			g->copyTile(fillTile, loc);
 			loc.inc2d(conf.editorSize);
 		} while (loc.x || loc.y);
@@ -351,15 +361,16 @@ class editor {
 	void restore() {
 		point loc(0,0);
 		do {
-			g->copyTile(l1->get(loc), loc);
-			g->copyTile(l2->get(loc), loc);
+			g->copyTile(m->get(loc, 0), loc);
+			g->copyTile(m->get(loc, 1), loc);
 			loc.inc2d(conf.editorSize);
 		} while (loc.x || loc.y);
 	}
 
 	void draw() {
-		m->put(this->cursor, this->selection);
-		g->copyTile(this->selection, this->cursor);
+		m->put(this->cursor, this->selection, this->layer);
+		g->copyTile(m->get(this->cursor, 0), this->cursor);
+		g->copyTile(m->get(this->cursor, 1), this->cursor);
 		if(i->keyClick) {
 			if(this->cursorY) {
 				this->cursor.y++;
@@ -412,6 +423,7 @@ class editor {
 
 				case SDLK_r:
 					g->clear();
+					g->drawTileMap();
 					this->restore();
 					this->drawCursor();
 					g->flip();
@@ -427,11 +439,11 @@ class editor {
 					break;
 
 				case SDLK_1:
-					this->m = this->l1;
+					layer = 0;
 					break;
 
 				case SDLK_2:
-					this->m = this->l2;
+					layer = 1;
 					break;
 
 				default: keyContinue = true;
