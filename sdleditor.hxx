@@ -2,27 +2,20 @@
 #define SDLEDITOR_H
 #include <SDL2/SDL.h>
 
+#define DATE(YYYY,MM,DD) ((YYYY*100*100)+(MM*100)+DD)
+
 namespace {
 class Factory {
 	public:
 	static SDL_Rect rect(int a, int b, int c, int d) {
 		return ((SDL_Rect){.x=a,.y=b,.w=c,.h=d});
 	}
-	static int max(int a, int b) {
-		return (a>b)? a : b;
-	}
-	static unsigned long date(int yyyy, int mm, int dd) {
-		return (yyyy*100*100) + (mm*100) + dd;
-	}
 };
 
-static const unsigned long BuildID = Factory::date(2014, 6, 17);
+static const unsigned long BuildID = DATE(2014, 6, 18);
 static const unsigned long Version = 0.06;
 static const unsigned long MinorBuild = 0;
-
-/* BUG: wasd will move one tile beyond the editor
- * BUG: need full redraw with restore function
- * */
+static const char * const ProgName = "GameEditor (SDL)";
 
  /* NOTE: SDL types: [US] + int + {8,16,32,64}
   */
@@ -80,21 +73,19 @@ struct tmap {
 	Uint32 data[];
 };
 
-class mapformat {
-	public:
-	static short toShort(const point xy) {
-		return (((xy.x & 0xff) << 8) + (xy.y & 0xff));
-	}
-	static point toPoint(const short data) {
-		return point((data >> 8), (data & 0xff));
-	}
-};
-
 class map {
 	tmap* tileMap;
 	SDL_RWops* restoreFile;
 	static const int struct_size = sizeof(struct tmap);
 	union { Uint32 i; Uint16 s[2];} layerformat;
+
+	static short toShort(const point xy) {
+		return (((xy.x & 0xff) << 8) + (xy.y & 0xff));
+	}
+
+	static point toPoint(const short data) {
+		return point((data >> 8), (data & 0xff));
+	}
 
 	public:
 	map(const char * const mapname) {
@@ -168,12 +159,12 @@ class map {
 
 	point get(point loc, int layer) {
 		layerformat.i = this->tileMap->data[this->offset(loc)];
-		return mapformat::toPoint(layerformat.s[layer]);
+		return this->toPoint(layerformat.s[layer]);
 	}
 
 	void put(point loc, point data, int layer) {
 		layerformat.i = this->tileMap->data[this->offset(loc)];
-		layerformat.s[layer] = mapformat::toShort(data);
+		layerformat.s[layer] = this->toShort(data);
 		this->tileMap->data[this->offset(loc)] = layerformat.i;
 
 	}
@@ -186,29 +177,22 @@ class graphics {
 	SDL_Texture* tex;
 
 	public:
-	graphics(const char * const tilemap) {
+	int tilePosition;
+
+	graphics(const char * const tilemap, const point size, const point loc, const long wflags, const long rflags) {
 		SDL_Init(SDL_INIT_EVERYTHING);
+
+		this->tilePosition = 0;
 
 		SDL_Surface* tmp = SDL_LoadBMP(tilemap);
 		conf.spriteMapSize = point(conf.toTile(tmp->w), conf.toTile(tmp->h));
 		SDL_SetColorKey(tmp, SDL_TRUE, SDL_MapRGB(tmp->format, 0xff, 0xff, 0xff));
 
 		//window
-		this->win = SDL_CreateWindow(
-			"Editor",
-			100,
-			100,
-			conf.toPixel(conf.editorSize.x + conf.spriteMapSize.x),
-			conf.toPixel(Factory::max(conf.editorSize.y, conf.spriteMapSize.y)),
-			SDL_WINDOW_SHOWN
-		);
+		this->win = SDL_CreateWindow(ProgName, loc.x, loc.y, size.x, size.y, wflags);
 
 		//renderer
-		this->ren = SDL_CreateRenderer(
-			this->win,
-			-1, //auto choose any suitable renderer
-			SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC
-		);
+		this->ren = SDL_CreateRenderer(this->win, -1, rflags);
 
 		//tilemap texture
 		this->tex = SDL_CreateTextureFromSurface(this->ren, tmp);
@@ -217,7 +201,7 @@ class graphics {
 		//clear the framebuffer, draw the spritemap and display
 		SDL_SetRenderDrawColor(this->ren, 0, 0, 0, 255);
 		this->clear();
-		this->drawTileMap();
+		this->drawTileMap(0);
 		this->flip();
 	}
 
@@ -228,11 +212,27 @@ class graphics {
 		SDL_Quit();
 	}
 
-	void drawTileMap() {
-		this->copy(
-			Factory::rect(0, 0, conf.toPixel(conf.spriteMapSize.x), conf.toPixel(conf.spriteMapSize.y)),
-			Factory::rect(conf.toPixel(conf.editorSize.x), 0, conf.toPixel(conf.spriteMapSize.x), conf.toPixel(conf.spriteMapSize.y))
+	void drawTileMap(const int origin) {
+		static const int height = conf.toPixel(SDL_min(conf.spriteMapSize.y, conf.spriteViewport.y));
+
+		static SDL_Rect src = Factory::rect(0, 0,
+			conf.toPixel(conf.spriteViewport.x),
+			height
 		);
+		static const SDL_Rect dest = Factory::rect(
+			conf.toPixel(conf.editorSize.x),
+			0,
+			conf.toPixel(conf.spriteViewport.x),
+			height
+		);
+
+		this->tilePosition += origin;
+		this->fill(dest); //clear the tilemap
+		this->tilePosition = SDL_min(SDL_max(this->tilePosition, 0),conf.spriteMapSize.x - conf.spriteViewport.x);
+		src.x = conf.toPixel(this->tilePosition);
+
+		this->copy(src, dest);
+		this->flip();
 	}
 
 	void copy(const SDL_Rect src, const SDL_Rect dest) {
@@ -241,6 +241,10 @@ class graphics {
 
 	void clear() {
 		SDL_RenderClear(this->ren);
+	}
+
+	void fill(const SDL_Rect area) {
+		SDL_RenderFillRect(this->ren, &area);
 	}
 
 	void flip() {
@@ -340,7 +344,7 @@ class editor {
 		g->copyTile(m->get(this->cursor, 0), this->cursor);
 		g->copyTile(m->get(this->cursor, 1), this->cursor);
 		this->cursor = dest;
-		this->cursor.clamp(point(0,0), conf.editorSize);
+		this->cursor.clamp(point(0,0), point(conf.editorSize.x -1, conf.editorSize.y -1));
 		this->drawCursor();
 		g->flip();
 	}
@@ -404,6 +408,7 @@ class editor {
 			} else {
 				this->selection = i->clickPos;
 				this->selection.x -= conf.editorSize.x;
+				this->selection.x += g->tilePosition;
 				this->draw();
 			}
 		}
@@ -423,7 +428,7 @@ class editor {
 
 				case SDLK_r:
 					g->clear();
-					g->drawTileMap();
+					g->drawTileMap(0);
 					this->restore();
 					this->drawCursor();
 					g->flip();
@@ -481,6 +486,14 @@ class editor {
 				case SDLK_l:
 					m->moveOrigin(point((conf.editorSize.x/2), 0));
 					break;
+
+				case SDLK_PAGEDOWN:
+					g->drawTileMap(-10);
+					break;
+
+				case SDLK_PAGEUP:
+					g->drawTileMap(10);
+					break;
 			}
 			this->restore();
 			this->drawCursor();
@@ -488,6 +501,5 @@ class editor {
 		}
 	}
 };
-
 }
 #endif //SDLEDITOR_H

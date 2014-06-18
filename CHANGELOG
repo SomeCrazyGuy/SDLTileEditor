@@ -1,4 +1,13 @@
+2014/06/18:
+===========
+	-version 0.07
+	-improved tileMap handling
+	-pageup / pagedown to move tilemap
+	-made space for a status bar
+
+
 2014/06/17:
+===========
 	-version 0.06
 	-improved layer support
 	-new map format
