@@ -14,11 +14,8 @@ class Factory {
 
 static const unsigned long BuildID = DATE(2014, 6, 18);
 static const unsigned long Version = 0.06;
-static const unsigned long MinorBuild = 0;
+static const unsigned long MinorBuild = 1;
 static const char * const ProgName = "GameEditor (SDL)";
-
- /* NOTE: SDL types: [US] + int + {8,16,32,64}
-  */
 
 class point {
 	public:
@@ -36,7 +33,20 @@ class point {
 		if(x >= limit.x) { ++y;	x=0; }
 		if(y >= limit.y) { y=0;	}
 	}
+	point operator+(const point xy) const {
+		return point(x + xy.x, y + xy.y);
+	}
+	point operator-(const point xy) const {
+		return point(x - xy.x, y - xy.y);
+	}
+	point operator*(const point xy) const {
+		return point(x * xy.x, y * xy.y);
+	}
+	point operator/(const point xy) const {
+		return point(x / xy.x, y / xy.y);
+	}
 };
+
 class config {
 	public:
 	int fps, delay;
@@ -57,8 +67,8 @@ class config {
 		return (pixelVal >> this->shift);
 	}
 
-	int toPixel(const int tileVal) {
-		return (tileVal << this->shift);
+	int toPixel(const int pixelVal) {
+		return (pixelVal << this->shift);
 	}
 };
 config conf;
@@ -75,7 +85,6 @@ struct tmap {
 
 class map {
 	tmap* tileMap;
-	SDL_RWops* restoreFile;
 	static const int struct_size = sizeof(struct tmap);
 	union { Uint32 i; Uint16 s[2];} layerformat;
 
@@ -89,35 +98,25 @@ class map {
 
 	public:
 	map(const char * const mapname) {
-		if(this->canRestore(mapname)) {
-			restore();
+		SDL_RWops* file = SDL_RWFromFile(mapname, "r");
+		tmap* l;
+		int tmap_size;
+
+		if (file) {
+			l = (tmap*) malloc(this->struct_size);
+			SDL_RWread(file, l, this->struct_size, 1);
+			l = (tmap*) realloc(l, l->size);
+			SDL_RWread(file, &(l->data), (l->size - this->struct_size), 1);
+			SDL_RWclose(file);
 		} else {
-			create(conf.mapSize);
+			tmap_size = (this->struct_size + ((conf.mapSize.x * conf.mapSize.y) * sizeof(Uint32)));
+			l = (tmap*) calloc(1, tmap_size);
+			*((int*)l->magic) = *(int*)"Tmap";
+			l->width = (short) (conf.mapSize.x & 0xffff);
+			l->height = (short) (conf.mapSize.y & 0xffff);
+			l->size = tmap_size;
 		}
-	}
-
-	void create(point size) {
-		tmap* l;
-		int tmap_size = (this->struct_size + ((size.x * size.y) * sizeof(Uint32)));
-
-		l = (tmap*) calloc(1, tmap_size);
-		*((int*)l->magic) = *(int*)"Tmap";
-		l->width = (short) (size.x & 0xffff);
-		l->height = (short) (size.y & 0xffff);
-		l->origin_x = 0;
-		l->origin_y = 0;
-		l->size = tmap_size;
-		this->tileMap  = l;
-	}
-
-	void restore() {
-		tmap* l;
-		l = (tmap*) malloc(this->struct_size);
-		SDL_RWread(this->restoreFile, l, this->struct_size, 1);
-		l = (tmap*) realloc(l, l->size);
-		SDL_RWread(this->restoreFile, &(l->data), (l->size - this->struct_size), 1);
 		this->tileMap = l;
-		SDL_RWclose(this->restoreFile);
 	}
 
 	~map() {
@@ -126,23 +125,12 @@ class map {
 
 	void moveOrigin(point change) {
 		tmap* l = this->tileMap;
-		point p = point(l->origin_x, l->origin_y);
+		point p = point(l->origin_x, l->origin_y) + change;
 
-		p.x += change.x;
-		p.y += change.y;
-
-		p.clamp(
-			point(0,0),
-			point(l->width - conf.editorSize.x, l->height - conf.editorSize.y)
-		);
+		p.clamp(point(0,0), point(l->width, l->height) - conf.editorSize);
 
 		l->origin_x = p.x;
 		l->origin_y = p.y;
-	}
-
-	bool canRestore(const char * const filename) {
-		this->restoreFile = SDL_RWFromFile(filename, "r");
-		return this->restoreFile;
 	}
 
 	void write(const char * const filename) {
@@ -219,6 +207,7 @@ class graphics {
 			conf.toPixel(conf.spriteViewport.x),
 			height
 		);
+
 		static const SDL_Rect dest = Factory::rect(
 			conf.toPixel(conf.editorSize.x),
 			0,
@@ -337,14 +326,14 @@ class editor {
 	}
 
 	void moveCursor(point dest) {
-		this->setCursor(point(this->cursor.x + dest.x, this->cursor.y + dest.y));
+		this->setCursor(this->cursor + dest);
 	}
 
 	void setCursor(point dest) {
 		g->copyTile(m->get(this->cursor, 0), this->cursor);
 		g->copyTile(m->get(this->cursor, 1), this->cursor);
 		this->cursor = dest;
-		this->cursor.clamp(point(0,0), point(conf.editorSize.x -1, conf.editorSize.y -1));
+		this->cursor.clamp(point(0,0), conf.editorSize - point(1,1));
 		this->drawCursor();
 		g->flip();
 	}
