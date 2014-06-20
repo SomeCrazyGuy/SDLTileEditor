@@ -5,22 +5,16 @@
 #define DATE(YYYY,MM,DD) ((YYYY*100*100)+(MM*100)+DD)
 
 namespace {
-class Factory {
-	public:
-	static SDL_Rect rect(int a, int b, int c, int d) {
-		return ((SDL_Rect){.x=a,.y=b,.w=c,.h=d});
-	}
-};
-
 static const unsigned long BuildID = DATE(2014, 6, 18);
 static const unsigned long Version = 0.06;
-static const unsigned long MinorBuild = 1;
+static const unsigned long MinorBuild = 2;
 static const char * const ProgName = "GameEditor (SDL)";
 
 class point {
 	public:
-	int x, y;
-	point(){}
+	Sint32 x;
+	Sint32 y;
+	point(): x(0), y(0) {}
 	point(const int w, const int h): x(w), y(h) {}
 	void clamp(const point min, const point max) {
 		if(x < min.x) { x = min.x; }
@@ -29,9 +23,13 @@ class point {
 		if(y > max.y) { y = max.y; }
 	}
 	void inc2d(const point limit) {
-		++x;
-		if(x >= limit.x) { ++y;	x=0; }
+		if(++x >= limit.x) { ++y; x=0; }
 		if(y >= limit.y) { y=0;	}
+	}
+	void math2d(const point xy, const point lim) {
+		*this+xy;
+		if(x > lim.x) { ++y; x=0; }
+		if(y > lim.y) { y=0; }
 	}
 	point operator+(const point xy) const {
 		return point(x + xy.x, y + xy.y);
@@ -39,11 +37,16 @@ class point {
 	point operator-(const point xy) const {
 		return point(x - xy.x, y - xy.y);
 	}
-	point operator*(const point xy) const {
-		return point(x * xy.x, y * xy.y);
-	}
-	point operator/(const point xy) const {
-		return point(x / xy.x, y / xy.y);
+};
+
+class rect {
+	public:
+	SDL_Rect quad;
+	rect(const int x, const int y, const int w, const int h) {
+		quad.x = x;
+		quad.y = y;
+		quad.w = w;
+		quad.h = h;
 	}
 };
 
@@ -158,7 +161,6 @@ class map {
 	}
 };
 
-
 class graphics {
 	SDL_Window* win;
 	SDL_Renderer* ren;
@@ -203,17 +205,14 @@ class graphics {
 	void drawTileMap(const int origin) {
 		static const int height = conf.toPixel(SDL_min(conf.spriteMapSize.y, conf.spriteViewport.y));
 
-		static SDL_Rect src = Factory::rect(0, 0,
-			conf.toPixel(conf.spriteViewport.x),
-			height
-		);
+		static SDL_Rect src = rect(0, 0, conf.toPixel(conf.spriteViewport.x), height).quad;
 
-		static const SDL_Rect dest = Factory::rect(
+		static const SDL_Rect dest = rect(
 			conf.toPixel(conf.editorSize.x),
 			0,
 			conf.toPixel(conf.spriteViewport.x),
 			height
-		);
+		).quad;
 
 		this->tilePosition += origin;
 		this->fill(dest); //clear the tilemap
@@ -242,8 +241,8 @@ class graphics {
 
 	void copyTile(const point src, const point dest) {
 		const int x = conf.tileSize;
-		static SDL_Rect srcRect = Factory::rect(0, 0, x, x);
-		static SDL_Rect destRect = Factory::rect(0, 0, x, x);
+		static SDL_Rect srcRect = rect(0, 0, x, x).quad;
+		static SDL_Rect destRect = rect(0, 0, x, x).quad;
 
 		srcRect.x = conf.toPixel(src.x);
 		srcRect.y = conf.toPixel(src.y);
@@ -320,8 +319,6 @@ class editor {
 		this->cursorY = false;
 		this->restore();
 		this->cursorTile = cur;
-		this->cursor = point(0,0);
-		this->selection = point(0,0);
 		this->drawCursor();
 	}
 
@@ -439,7 +436,6 @@ class editor {
 				case SDLK_2:
 					layer = 1;
 					break;
-
 				default: keyContinue = true;
 			}
 		}
