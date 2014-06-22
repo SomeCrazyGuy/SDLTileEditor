@@ -7,7 +7,7 @@
 namespace {
 static const unsigned long BuildID = DATE(2014, 6, 18);
 static const unsigned long Version = 0.06;
-static const unsigned long MinorBuild = 2;
+static const unsigned long MinorBuild = 3;
 static const char * const ProgName = "GameEditor (SDL)";
 
 class point {
@@ -16,20 +16,16 @@ class point {
 	Sint32 y;
 	point(): x(0), y(0) {}
 	point(const int w, const int h): x(w), y(h) {}
-	void clamp(const point min, const point max) {
+	void clamp(const point min, const point max = point(0,0)) {
 		if(x < min.x) { x = min.x; }
 		if(y < min.y) { y = min.y; }
 		if(x > max.x) { x = max.x; }
 		if(y > max.y) { y = max.y; }
 	}
-	void inc2d(const point limit) {
-		if(++x >= limit.x) { ++y; x=0; }
-		if(y >= limit.y) { y=0;	}
-	}
 	void math2d(const point xy, const point lim) {
-		*this+xy;
-		if(x > lim.x) { ++y; x=0; }
-		if(y > lim.y) { y=0; }
+		x+=xy.x;y+=xy.y;
+		if(x >= lim.x) { ++y; x=0; }
+		if(y >= lim.y) { y=0; }
 	}
 	point operator+(const point xy) const {
 		return point(x + xy.x, y + xy.y);
@@ -344,7 +340,7 @@ class editor {
 		do {
 			m->put(loc, fillTile, this->layer);
 			g->copyTile(fillTile, loc);
-			loc.inc2d(conf.editorSize);
+			loc.math2d(point(1,0), conf.editorSize);
 		} while (loc.x || loc.y);
 	}
 
@@ -353,7 +349,7 @@ class editor {
 		do {
 			g->copyTile(m->get(loc, 0), loc);
 			g->copyTile(m->get(loc, 1), loc);
-			loc.inc2d(conf.editorSize);
+			loc.math2d(point(1,0), conf.editorSize);
 		} while (loc.x || loc.y);
 	}
 
@@ -363,12 +359,9 @@ class editor {
 		g->copyTile(m->get(this->cursor, 1), this->cursor);
 		if(i->keyClick) {
 			if(this->cursorY) {
-				this->cursor.y++;
-				if(this->cursor.y >= conf.editorSize.y) {
-					this->cursor.y = 0;
-				}
+				this->cursor.math2d(point(0,1), conf.editorSize);
 			} else {
-				this->cursor.inc2d(conf.editorSize);
+				this->cursor.math2d(point(1,0), conf.editorSize);
 			}
 		}
 		this->drawCursor();
