@@ -7,7 +7,7 @@
 namespace {
 static const unsigned long BuildID = DATE(2014, 6, 18);
 static const unsigned long Version = 0.06;
-static const unsigned long MinorBuild = 3;
+static const unsigned long MinorBuild = 4;
 static const char * const ProgName = "GameEditor (SDL)";
 
 class point {
@@ -318,21 +318,25 @@ class editor {
 		this->drawCursor();
 	}
 
+	void loadLayers(const point& cur) {
+		g->copyTile(m->get(cur, 0), cur);
+		g->copyTile(m->get(cur, 1), cur);
+	}
+
 	void moveCursor(point dest) {
 		this->setCursor(this->cursor + dest);
 	}
 
 	void setCursor(point dest) {
-		g->copyTile(m->get(this->cursor, 0), this->cursor);
-		g->copyTile(m->get(this->cursor, 1), this->cursor);
+		this->loadLayers(this->cursor);
 		this->cursor = dest;
 		this->cursor.clamp(point(0,0), conf.editorSize - point(1,1));
 		this->drawCursor();
-		g->flip();
 	}
 
 	void drawCursor() {
 		g->copyTile(this->cursorTile, this->cursor);
+		g->flip();
 	}
 
 	void fill(point fillTile) {
@@ -347,25 +351,23 @@ class editor {
 	void restore() {
 		point loc(0,0);
 		do {
-			g->copyTile(m->get(loc, 0), loc);
-			g->copyTile(m->get(loc, 1), loc);
+			this->loadLayers(loc);
 			loc.math2d(point(1,0), conf.editorSize);
 		} while (loc.x || loc.y);
 	}
 
 	void draw() {
-		m->put(this->cursor, this->selection, this->layer);
-		g->copyTile(m->get(this->cursor, 0), this->cursor);
-		g->copyTile(m->get(this->cursor, 1), this->cursor);
+		point& cur = this->cursor;
+		m->put(cur, this->selection, this->layer);
+		this->loadLayers(cur);
 		if(i->keyClick) {
 			if(this->cursorY) {
-				this->cursor.math2d(point(0,1), conf.editorSize);
+				cur.math2d(point(0,1), conf.editorSize);
 			} else {
-				this->cursor.math2d(point(1,0), conf.editorSize);
+				cur.math2d(point(1,0), conf.editorSize);
 			}
 		}
 		this->drawCursor();
-		g->flip();
 	}
 
 	void handleEvents() {
@@ -410,7 +412,6 @@ class editor {
 					g->drawTileMap(0);
 					this->restore();
 					this->drawCursor();
-					g->flip();
 					break;
 
 				case SDLK_x:
@@ -419,7 +420,7 @@ class editor {
 
 				case SDLK_f:
 					this->fill(this->selection);
-					g->flip();
+					this->drawCursor();
 					break;
 
 				case SDLK_1:
@@ -475,7 +476,6 @@ class editor {
 			}
 			this->restore();
 			this->drawCursor();
-			g->flip();
 		}
 	}
 };
